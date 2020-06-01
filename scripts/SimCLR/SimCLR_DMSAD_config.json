@@ -1,0 +1,61 @@
+{
+  "Experiment_Name": "SimCLR_DMSAD_",
+  "PATH": {
+    "DATA": "../../../data/PROCESSED/",
+    "DATA_INFO": "../../../data/data_info.csv",
+    "OUTPUT": "../../../Outputs/"
+  },
+  "device": "cuda",
+  "n_thread": 0,
+  "seeds": [
+    1,
+    11,
+    111,
+    1111
+  ],
+  "print_batch_progress": true,
+  "Split": {
+    "train_frac": 0.5,
+    "known_normal": 0.05,
+    "known_abnormal": 0.05,
+    "img_size": 512
+  },
+  "SimCLR": {
+    "tau": 0.5,
+    "n_epoch": 100,
+    "batch_size": 24,
+    "lr": 0.001,
+    "lr_milestone": [
+      70,
+      90
+    ],
+    "weight_decay": 0.000001,
+    "num_worker": 8,
+    "model_path_to_load": null,
+    "MLP_head": [
+      512,
+      256,
+      128
+    ]
+  },
+  "DMSAD": {
+    "eta": 1.0,
+    "gamma": 0.05,
+    "n_sphere_init": 100,
+    "n_epoch": 150,
+    "batch_size": 16,
+    "lr": 0.0001,
+    "lr_milestone": [
+      90,
+      140
+    ],
+    "weight_decay": 0.000001,
+    "num_worker": 8,
+    "model_path_to_load": null,
+    "MLP_head": [
+      512,
+      256,
+      128
+    ]
+  }
+}
