@@ -6,21 +6,35 @@ import os
 import sys
 sys.path.append('../../')
 import click
+import ast
 
 from sklearn.metrics import roc_auc_score, roc_curve
 
-from src.utils.plot_utils import metric_barplot
+from src.utils.results_processing import metric_barplot
 from src.datasets.MURADataset import MURA_TrainValidTestSplitter
 
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('Agg')
 
+# Class to parse list
+class PythonLiteralOption(click.Option):
+    def type_cast_value(self, ctx, value):
+        try:
+            return ast.literal_eval(value)
+        except:
+            raise click.BadParameter(value)
+
 def plot_loss(epoch_loss, ax, title=''):
     """
-    Plot loss evolutoin givenin epoch_loss.
+    Plot loss evolutoin given in np.array epoch_loss (N_rep x N_epoch x 2).
     """
-    ax.plot(epoch_loss[:,0], epoch_loss[:,1], color='darkgray', lw=3)
+    epochs = epoch_loss[0,:,0]
+    epoch_loss_m = epoch_loss[:,:,1].mean(axis=0)
+    epoch_loss_CIinf = epoch_loss_m - 1.96*epoch_loss[:,:,1].std(axis=0)
+    epoch_loss_CIsup = epoch_loss_m + 1.96*epoch_loss[:,:,1].std(axis=0)
+    ax.plot(epochs, epoch_loss_m, color='darkgray', lw=3)#ax.plot(epoch_loss[:,0], epoch_loss[:,1], color='darkgray', lw=3)
+    ax.fill_between(epochs, epoch_loss_CIsup, epoch_loss_CIinf, color='darkgray', alpha=0.5, lw=0)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.set_xlabel('Epoch [-]', fontsize=12)
@@ -153,13 +167,13 @@ def plot_score_dist(scores, labels, ax, title='', legend=False):
         ax.legend(handles, leg_names, ncol=1, loc='upper right', frameon=False,
                   fontsize=12, bbox_to_anchor=(1.5, 1), bbox_transform=ax.transAxes)
 
-def plot_ROC(scores, labels, set, ax, title=''):
+def plot_ROC(scores, labels, ax, title=''):
     """
     Plot the test and validation ROC curves.
     """
     # ROC curve valid and test
-    for set_i in np.unique(set):
-        fpr, tpr, thres = roc_curve(labels[set == set_i], scores[set == set_i])
+    for score, label in zip(scores, labels):
+        fpr, tpr, thres = roc_curve(label, score)
         ax.plot(fpr, tpr, color='coral', lw=1)
         ax.fill_between(fpr, tpr, facecolor='coral', alpha=0.05)
 
@@ -171,20 +185,27 @@ def plot_ROC(scores, labels, set, ax, title=''):
     ax.set_xlim([0,1])
     ax.set_ylim([0,1])
 
-def get_AUC_list(scores, labels, body_part):
+def get_AUC_list(df_list, set):
     """
     """
-    auc_list = [roc_auc_score(labels, scores)]
-    name_list = ['All']
-    for bp in np.unique(body_part):
-        auc_list.append(roc_auc_score(labels[body_part == bp], scores[body_part == bp]))
-        name_list.append(bp.title())
+    auc_list = []
+    for df in df_list:
+        set_list = df.set.values
+        scores = df.ad_score.values[set_list == set]
+        labels = df.abnormal_XR.values[set_list == set]
+        body_part = df.body_part.values[set_list == set]
 
-    return np.array(auc_list).reshape(1,-1), name_list
+        auc_list_tmp = [roc_auc_score(labels, scores)]
+        name_list = ['All']
+        for bp in np.unique(body_part):
+            auc_list_tmp.append(roc_auc_score(labels[body_part == bp], scores[body_part == bp]))
+            name_list.append(bp.title())
+        auc_list.append(auc_list_tmp)
 
+    return np.array(auc_list), name_list
 @click.command()
 @click.argument('expe_folder', type=click.Path(exists=True))
-@click.option('--rep', type=int, default=1, help='The replicate number to process. Default: 1.')
+@click.option('--rep', cls=PythonLiteralOption, default=[1], help='The list of replicate number to process. Default: [1].')
 @click.option('--data_info_path', type=click.Path(exists=True), default='../../../data/data_info.csv',
               help='Where to find the info dataframe. Default: ../../../data/data_info.csv')
 @click.option('--pretrain', type=click.Choice(['SimCLR', 'AE']), default='SimCLR',
@@ -211,74 +232,84 @@ def main(expe_folder, rep, data_info_path, pretrain, model, frac_abnormal):
     valid_df = spliter.get_subset('valid')
     test_df = spliter.get_subset('test')
 
-    # load results
-    with open(expe_folder + f'results/results_{rep}.json', 'r') as f:
-        results = json.load(f)
+    df_sim, df_ad = [], []
+    loss_list_sim, loss_list_ad = [], []
+    for rep_i in rep:
+        # load results
+        with open(expe_folder + f'results/results_{rep_i}.json', 'r') as f:
+            results = json.load(f)
 
-    # concat valid and test 512 and 128 embedding of SimCLR
-    df = []
-    for set, df_set in zip(['valid', 'test'], [valid_df, test_df]):
-        df_tmp = df_set.copy() \
-                       .drop(columns=['patient_any_abnormal', 'body_part_abnormal', 'low_contrast', 'semi_label'])
+        # get loss evolution
+        loss_list_sim.append(results[pretrain]['train']['loss'])
+        loss_list_ad.append(results['AD']['train']['loss'])
 
-        cols = ['idx', '512_embed', '128_embed'] if pretrain == 'SimCLR' else ['idx', 'label', 'AE_score', '512_embed', '128_embed']
+        # concat valid and test 512 and 128 embedding of SimCLR
+        df = []
+        for set, df_set in zip(['valid', 'test'], [valid_df, test_df]):
+            df_tmp = df_set.copy() \
+                           .drop(columns=['patient_any_abnormal', 'body_part_abnormal', 'low_contrast', 'semi_label'])
 
-        df_scores = pd.DataFrame(data=results[pretrain][set]['embedding'], columns=cols) \
-                      .set_index('idx')
-        df_scores['set'] = set
-        df.append(pd.merge(df_tmp, df_scores, how='inner', left_index=True, right_index=True))
+            cols = ['idx', '512_embed', '128_embed'] if pretrain == 'SimCLR' else ['idx', 'label', 'AE_score', '512_embed', '128_embed']
 
-    # concat valid and test
-    df_sim = pd.concat(df, axis=0)
+            df_scores = pd.DataFrame(data=results[pretrain][set]['embedding'], columns=cols) \
+                          .set_index('idx')
+            df_scores['set'] = set
+            df.append(pd.merge(df_tmp, df_scores, how='inner', left_index=True, right_index=True))
 
-    # concat valid and test scores and embedding of DSAD
-    df = []
-    for set, df_set in zip(['valid', 'test'], [valid_df, test_df]):
-        df_tmp = df_set.copy() \
-                       .drop(columns=['patient_any_abnormal', 'body_part_abnormal', 'low_contrast', 'semi_label'])
+        # concat valid and test
+        df_sim.append(pd.concat(df, axis=0))
 
-        cols = ['idx', 'label', 'ad_score', 'sphere_idx','128_embed'] if model == 'DMSAD' else  ['idx', 'label', 'ad_score', '128_embed']
+        # concat valid and test scores and embedding of DSAD
+        df = []
+        for set, df_set in zip(['valid', 'test'], [valid_df, test_df]):
+            df_tmp = df_set.copy() \
+                           .drop(columns=['patient_any_abnormal', 'body_part_abnormal', 'low_contrast', 'semi_label'])
 
-        df_scores = pd.DataFrame(data=results['AD'][set]['scores'], columns=cols) \
-                      .set_index('idx') \
-                      .drop(columns=['label'])
-        df_scores['set'] = set
-        df.append(pd.merge(df_tmp, df_scores, how='inner', left_index=True, right_index=True))
+            cols = ['idx', 'label', 'ad_score', 'sphere_idx','128_embed'] if model == 'DMSAD' else  ['idx', 'label', 'ad_score', '128_embed']
 
-    # concat valid and test
-    df_ad = pd.concat(df, axis=0)
+            df_scores = pd.DataFrame(data=results['AD'][set]['scores'], columns=cols) \
+                          .set_index('idx') \
+                          .drop(columns=['label'])
+            df_scores['set'] = set
+            df.append(pd.merge(df_tmp, df_scores, how='inner', left_index=True, right_index=True))
+
+        # concat valid and test
+        df_ad.append(pd.concat(df, axis=0))
 
     ############################# INITIALIZE FIGURE ############################
-    if model == 'DSAD':
-        fig = plt.figure(figsize=(24,33))
-        gs = fig.add_gridspec(nrows=5, ncols=24, hspace=0.4, wspace=5, height_ratios=[2/15, 4/15, 4/15, 2/15, 3/15])
-    else:
+    if len(rep) == 1 and model == 'DMSAD':
         fig = plt.figure(figsize=(24,40))
         gs = fig.add_gridspec(nrows=6, ncols=24, hspace=0.4, wspace=5, height_ratios=[2/19, 4/19, 4/19, 4/19, 2/19, 3/19])
+    else:
+        fig = plt.figure(figsize=(24,33))
+        gs = fig.add_gridspec(nrows=5, ncols=24, hspace=0.4, wspace=5, height_ratios=[2/15, 4/15, 4/15, 2/15, 3/15])
 
     ################################ PLOT LOSS #################################
+    pretrain_name = 'Contrastive' if pretrain == 'SimCLR' else pretrain
     ax_loss_sim = fig.add_subplot(gs[0, :12])
-    epoch_loss = np.array(results[pretrain]['train']['loss'])
-    plot_loss(epoch_loss, ax_loss_sim, title=f'{pretrain} Loss Evolution')
+    epoch_loss_sim = np.array(loss_list_sim)
+    epoch_loss_ad = np.array(loss_list_ad)
+
+    if epoch_loss_sim.shape[1] != 0:
+        plot_loss(epoch_loss_sim, ax_loss_sim, title=f'{pretrain_name} Loss Evolution')
 
     ax_loss_ad = fig.add_subplot(gs[0, 12:])
-    epoch_loss = np.array(results['AD']['train']['loss'])
-    plot_loss(epoch_loss, ax_loss_ad, title=f'{model} Loss Evolution')
+    plot_loss(epoch_loss_ad, ax_loss_ad, title=f'{model} Loss Evolution')
 
     ############################### PLOT T-SNE  ################################
-    df_sim_val = df_sim[df_sim.set == 'valid']
+    df_sim_val = df_sim[0][df_sim[0].set == 'valid']
     embed2D = np.stack(df_sim_val['512_embed'].values, axis=0)
     labels = df_sim_val.abnormal_XR.values
     body_part = df_sim_val.body_part.values
     # by body_part
     ax_repr_sim512 = fig.add_subplot(gs[1, :8])
     plot_tSNE_bodypart(embed2D, body_part, ax_repr_sim512,
-              title=f't-SNE Representation of {pretrain} 512-Dimensional Space \nBy Body Part',
+              title=f't-SNE Representation of {pretrain_name} 512-Dimensional Space \nBy Body Part',
               legend=False)
     # by labels
     ax_repr_sim512 = fig.add_subplot(gs[2, :8])
     plot_tSNE_label(embed2D, labels, ax_repr_sim512,
-              title=f't-SNE Representation of {pretrain} 512-Dimensional Space\nBy Labels',
+              title=f't-SNE Representation of {pretrain_name} 512-Dimensional Space\nBy Labels',
               legend=False)
 
     embed2D = np.stack(df_sim_val['128_embed'].values, axis=0)
@@ -287,15 +318,15 @@ def main(expe_folder, rep, data_info_path, pretrain, model, frac_abnormal):
     # by body_part
     ax_repr_sim128 = fig.add_subplot(gs[1, 8:16])
     plot_tSNE_bodypart(embed2D, body_part, ax_repr_sim128,
-              title=f't-SNE Representation of {pretrain} 128-Dimensional Space \nBy Body Part',
+              title=f't-SNE Representation of {pretrain_name} 128-Dimensional Space \nBy Body Part',
               legend=True)
     # by labels
     ax_repr_sim128 = fig.add_subplot(gs[2, 8:16])
     plot_tSNE_label(embed2D, labels, ax_repr_sim128,
-              title=f't-SNE Representation of {pretrain} 128-Dimensional Space\nBy Labels',
+              title=f't-SNE Representation of {pretrain_name} 128-Dimensional Space\nBy Labels',
               legend=True)
 
-    df_ad_val = df_ad[df_ad.set == 'valid']
+    df_ad_val = df_ad[0][df_ad[0].set == 'valid']
     embed2D = np.stack(df_ad_val['128_embed'].values, axis=0)
     labels = df_ad_val.abnormal_XR.values
     body_part = df_ad_val.body_part.values
@@ -311,7 +342,7 @@ def main(expe_folder, rep, data_info_path, pretrain, model, frac_abnormal):
               legend=False)
 
     ########################## PLOT SPHERE DIAGNOSTIC ##########################
-    if model == 'DMSAD':
+    if len(rep) == 1 and model == 'DMSAD':
         # distribution by sphere
         ax_sphere_dist = fig.add_subplot(gs[3, :16])
         plot_sphere_dist(df_ad_val[df_ad_val.abnormal_XR == 0], ax_sphere_dist, title='Body Part Distribution by Sphere')
@@ -325,7 +356,7 @@ def main(expe_folder, rep, data_info_path, pretrain, model, frac_abnormal):
                          legend=True)
 
     ######################### PLOT SCORE DISTRIBUTION  #########################
-    df_ad_val = df_ad[df_ad.set == 'valid']
+    df_ad_val = df_ad[0][df_ad[0].set == 'valid']
     ad_scores = df_ad_val.ad_score.values
     labels = df_ad_val.abnormal_XR.values
     body_part = df_ad_val.body_part.values
@@ -344,24 +375,25 @@ def main(expe_folder, rep, data_info_path, pretrain, model, frac_abnormal):
     ########################## PLOT AUC AND ROC CURVE  #########################
     # ROC
     ax_roc = fig.add_subplot(gs[-1, :6])
-    ad_scores = df_ad.ad_score.values
-    labels = df_ad.abnormal_XR.values
-    set = df_ad.set.values
-    plot_ROC(ad_scores, labels, set, ax_roc, title='ROC curve')
+    ad_scores = [df.ad_score.values for df in df_ad]
+    labels = [df.abnormal_XR.values for df in df_ad]
+    #set = df_ad[0].set.values
+    plot_ROC(ad_scores, labels, ax_roc, title='Validation ROC curve')
 
     # AUC Barplot
     ax_auc = fig.add_subplot(gs[-1, 6:])
-    ad_scores = df_ad.ad_score.values
-    labels = df_ad.abnormal_XR.values
-    body_part = df_ad.body_part.values
-    set = df_ad.set.values
-    valid_auc, names = get_AUC_list(ad_scores[set == 'valid'], labels[set == 'valid'], body_part[set == 'valid'])
-    test_auc, names = get_AUC_list(ad_scores[set == 'test'], labels[set == 'test'], body_part[set == 'test'])
+    ad_scores = df_ad[0].ad_score.values
+    labels = df_ad[0].abnormal_XR.values
+    body_part = df_ad[0].body_part.values
+    set = df_ad[0].set.values
+    valid_auc, names = get_AUC_list(df_ad, 'valid') #get_AUC_list(ad_scores[set == 'valid'], labels[set == 'valid'], body_part[set == 'valid'])
+    test_auc, names = get_AUC_list(df_ad, 'test')#get_AUC_list(ad_scores[set == 'test'], labels[set == 'test'], body_part[set == 'test'])
     metric_barplot([valid_auc, test_auc], ['Validation', 'Test'], names, ['lightsalmon', 'peachpuff'], gap=1, ax=ax_auc, fontsize=12)
     ax_auc.set_title('Overall AUC scores and AUC by Body Part', fontsize=12, fontweight='bold')
 
     ################################ SAVE FIGURE ###################################
-    fig.savefig(expe_folder + f'analysis/summary_{rep}.pdf', dpi=200, bbox_inches='tight')
+    rep_name = '-'.join([str(r) for r in rep])
+    fig.savefig(expe_folder + f'analysis/summary_{rep_name}.pdf', dpi=200, bbox_inches='tight')
 
 if __name__ == '__main__':
     main()

@@ -1,0 +1,29 @@
+{
+  "Experiment_Name": "Ablation_SimCLR_DSAD_",
+  "PATH": {
+    "DATA": "../../../data/PROCESSED/",
+    "DATA_INFO": "../../../data/data_info.csv",
+    "OUTPUT": "../../../Outputs/"
+  },
+  "device": "cuda",
+  "n_thread": 0,
+  "seeds": [
+    1,
+    11,
+    111,
+    1111
+  ],
+  "Split": {
+    "train_frac": 0.5,
+    "known_normal": 0.05,
+    "known_abnormal": 0.05,
+    "img_size": 512
+  },
+  "print_batch_progress": true,
+  "model_path_name": "../../../Outputs/SimCLR_DSAD_2020_06_01_10h52/model/SimCLR_net_",
+  "batch_size": 16,
+  "num_worker": 8,
+  "n_cluster": 50,
+  "kmeans_reduction": false,
+  "n_neighbors": 100
+}
