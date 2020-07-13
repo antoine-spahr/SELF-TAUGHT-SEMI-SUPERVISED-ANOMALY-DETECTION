@@ -117,12 +117,12 @@ def main(config_path):
 
         ############################### Train AE ###############################
         # make dataset
-        train_dataset_AD = MURA_Dataset(train_df, data_path=cfg.settings['PATH']['DATA'], load_mask=True,
-                                     load_semilabels=True, output_size=cfg.settings['Split']['img_size'])
-        valid_dataset_AD = MURA_Dataset(valid_df, data_path=cfg.settings['PATH']['DATA'], load_mask=True,
-                                     load_semilabels=True, output_size=cfg.settings['Split']['img_size'])
-        test_dataset_AD = MURA_Dataset(test_df, data_path=cfg.settings['PATH']['DATA'], load_mask=True,
-                                    load_semilabels=True, output_size=cfg.settings['Split']['img_size'])
+        train_dataset_AD = MURA_Dataset(train_df, data_path=cfg.settings['PATH']['DATA'], mask_img=True,
+                                        output_size=cfg.settings['Split']['img_size'])
+        valid_dataset_AD = MURA_Dataset(valid_df, data_path=cfg.settings['PATH']['DATA'], mask_img=True,
+                                        output_size=cfg.settings['Split']['img_size'])
+        test_dataset_AD = MURA_Dataset(test_df, data_path=cfg.settings['PATH']['DATA'], mask_img=True,
+                                        output_size=cfg.settings['Split']['img_size'])
 
         logger.info("Online preprocessing pipeline : \n" + str(train_dataset_AD.transform) + "\n")
 

@@ -254,11 +254,17 @@ class ResNet18_Decoder(nn.Module):
 
 class MLPHead(nn.Module):
     """
-
+    Module defining the MLP Projection head.
     """
     def __init__(self, Neurons_layer=[512,256,128]):
         """
-
+        Build a MLP projection head module.
+        ----------
+        INPUT
+            |---- Neurons_layer (list of int) list of number of neurones at each
+            |           layers of the projection head.
+        OUTPUT
+            |---- None
         """
         nn.Module.__init__(self)
         self.fc_layers = nn.ModuleList(nn.Linear(in_features=n_in, out_features=n_out) for n_in, n_out in zip(Neurons_layer[:-1], Neurons_layer[1:]))
@@ -266,7 +272,12 @@ class MLPHead(nn.Module):
 
     def forward(self, x):
         """
-
+        Forward pass of the projection head.
+        ----------
+        INPUT
+            |---- x (torch.Tensor) the input with dimension (B x Neurons_layer[0]).
+        OUTPUT
+            |---- x (torch.Tensor) the compressed image (B x Neurons_layer[-1]).
         """
         for linear in self.fc_layers[:-1]:
             x = self.relu(linear(x))

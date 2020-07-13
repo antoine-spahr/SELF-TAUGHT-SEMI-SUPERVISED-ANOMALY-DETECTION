@@ -124,14 +124,21 @@ class DMSADLoss(nn.Module):
         loss = torch.mean(losses)
         return loss
 
-class NT_Xent_loss(nn.Module):
+class InfoNCE_loss(nn.Module):
     """
     Normalized temperature scaled cross-entropy loss.
     (https://github.com/Spijkervet/SimCLR/blob/master/modules/nt_xent.py)
     """
     def __init__(self, tau, batch_size, device='cuda'):
         """
-
+        Build a InfoNCE loss modules.
+        ----------
+        INPUT
+            |---- tau (float) the temperature hyperparameter.
+            |---- batch_size (int) the size of the batch.
+            |---- device (str) the device to use.
+        OUTPUT
+            |---- None
         """
         nn.Module.__init__(self)
         self.tau = tau
@@ -144,7 +151,12 @@ class NT_Xent_loss(nn.Module):
 
     def get_neg_mask(self, batch_size):
         """
-
+        Generate a mask of the negative pairs positions.
+        ----------
+        INPUT
+            |---- batch_size (int) the size of the btach.
+        OUTPUT
+            |---- mask (torch.Tensor) the mask of negtaive positions (2 batch_size x 2 batch_size).
         """
         mask = torch.ones((batch_size * 2, batch_size * 2), dtype=bool)
         mask = mask.fill_diagonal_(0)
@@ -155,7 +167,15 @@ class NT_Xent_loss(nn.Module):
 
     def forward(self, z_i, z_j):
         """
-
+        Forward pass of the infoNCE loss.
+        ----------
+        INPUT
+            |---- z_i (torch.Tensor) the representation of the first transformed
+            |           input of the batch (B x Embed).
+            |---- z_j (torch.Tensor) the representation of the second transformed
+            |           input of the batch (B x Embed).
+        OUTPUT
+            |---- loss (torch.Tensor) the infoNCE loss.
         """
         # concat both represenation to get a (2*Batch x Embed)
         p = torch.cat((z_i, z_j), dim=0)

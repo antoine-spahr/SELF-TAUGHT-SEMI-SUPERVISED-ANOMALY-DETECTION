@@ -1,10 +1,4 @@
-#import numpy as np
 import pandas as pd
-#import os
-#import sys
-#import matplotlib.pyplot as plt
-
-#DATA_PATH = r'../../../data/'
 
 def generate_data_info(csv_fn):
     """
@@ -44,9 +38,3 @@ def generate_data_info(csv_fn):
            .rename(columns={'label':'body_part_abnormal'})
 
     return df
-
-# %%
-# df1 = generate_data_info(DATA_PATH+'RAW/train_image_paths.csv')
-# df2 = generate_data_info(DATA_PATH+'RAW/valid_image_paths.csv')
-# df = pd.concat([df1,df2], axis=0).reset_index()
-# df.to_csv(DATA_PATH+'data_info.csv')

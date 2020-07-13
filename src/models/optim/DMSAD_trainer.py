@@ -184,16 +184,15 @@ class DMSAD_trainer:
         Evaluate the DSAD network on the provided dataset.
         ----------
         INPUT
-            |---- net (nn.Module) The DeepSAD network to validate.
+            |---- net (nn.Module) The DMSAD network to validate.
             |---- dataset (torch.utils.data.Dataset) the dataset on which the
             |           network is evaluated.
-            |---- net (nn.Module) The DeepSAD network to validate.
             |---- return_auc (bool) whether to return the computed auc or not.
             |---- print_to_logger (bool) whether to print in the logger.
             |---- save_tSNE (bool) whether to save a 2D t-SNE representation of
             |           the embeded data points
         OUTPUT
-            |---- None
+            |---- (auc) (float) the validation auc if required.
         """
         if print_to_logger:
             logger = logging.getLogger()

@@ -8,18 +8,32 @@ import logging
 
 from sklearn.manifold import TSNE
 
-from src.models.optim.Loss_Functions import NT_Xent_loss
+from src.models.optim.Loss_Functions import InfoNCE_loss
 from src.utils.utils import print_progessbar
 
-class SimCLR_trainer:
+class Contrastive_trainer:
     """
-
+    Define a trainer of the encoder network for the contrastice task.
     """
     def __init__(self, tau, n_epoch=100, batch_size=32,lr=1e-3, weight_decay=1e-6,
                  lr_milestones=(), n_job_dataloader=0, device='cuda',
                  print_batch_progress=False):
         """
-
+        Build a contrastive trainer.
+        ----------
+        INPUT
+            |---- tau (float) the temperature hyperparameter.
+            |---- n_epoch (int) the number of epoch.
+            |---- lr (float) the learning rate.
+            |---- lr_milestones (tuple) the lr update steps.
+            |---- batch_size (int) the batch_size to use.
+            |---- weight_decay (float) the weight_decay for the Adam optimizer.
+            |---- device (str) the device to work on ('cpu' or 'cuda').
+            |---- n_job_dataloader (int) number of workers for the dataloader.
+            |---- print_batch_progress (bool) whether to dispay the batch
+            |           progress bar.
+        OUTPUT
+            |---- None
         """
         self.tau = tau
         self.n_epoch = n_epoch
@@ -37,8 +51,18 @@ class SimCLR_trainer:
 
     def train(self, dataset, net, valid_dataset=None):
         """
-        dataset yield two batch of images with different transformations
-        Train on NT-Xent loss
+        Train the network on the provided dataset.
+        ----------
+        INPUT
+            |---- dataset (torch.utils.data.Dataset) the dataset on which the
+            |           network is trained. It must return two transformed version
+            |           of an image.
+            |---- net (nn.Module) The Encoder to train.
+            |---- valid_dataset (torch.utils.data.Dataset) the dataset on which
+            |           to validate the network at each epoch. Not validated if
+            |           not provided.
+        OUTPUT
+            |---- net (nn.Module) The trained Encoder.
         """
         logger = logging.getLogger()
 
@@ -51,7 +75,7 @@ class SimCLR_trainer:
         net = net.to(self.device)
 
         # define loss function
-        loss_fn = NT_Xent_loss(self.tau, self.batch_size, device=self.device)
+        loss_fn = InfoNCE_loss(self.tau, self.batch_size, device=self.device)
 
         # define the optimizer
         optimizer = optim.Adam(net.parameters(), lr=self.lr, weight_decay=self.weight_decay)
@@ -60,7 +84,7 @@ class SimCLR_trainer:
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
 
         # Training
-        logger.info('Start Training SimCLR.')
+        logger.info('Start Contrastive Training.')
         start_time = time.time()
         epoch_loss_list = []
         n_batch = len(train_loader)
@@ -75,7 +99,6 @@ class SimCLR_trainer:
                 input_1, input_2, _, _ = data
                 input_1 = input_1.to(self.device).float().requires_grad_(True)
                 input_2 = input_2.to(self.device).float().requires_grad_(True)
-                #semi_label = semi_label.to(self.device)
 
                 # Update by Backpropagation : Fowrad + Backward + step
                 optimizer.zero_grad()
@@ -117,13 +140,24 @@ class SimCLR_trainer:
         # Save results
         self.train_time = time.time() - start_time
         self.train_loss = epoch_loss_list
-        logger.info(f'---- Finished Training SimCLR in {self.train_time:.3f} [s].')
+        logger.info(f'---- Finished Contrastive Training in {self.train_time:.3f} [s].')
 
         return net
 
     def evaluate(self, dataset, net, save_tSNE=False, return_loss=True, print_to_logger=True):
         """
-
+        Evaluate the Contrative network on the provided dataset.
+        ----------
+        INPUT
+            |---- net (nn.Module) The Encoder network to validate.
+            |---- dataset (torch.utils.data.Dataset) the dataset on which the
+            |           network is evaluated.
+            |---- print_to_logger (bool) whether to print in the logger.
+            |---- save_tSNE (bool) whether to save a 2D t-SNE representation of
+            |           the embeded data points
+            |---- return_loss (bool) whether to return the validation loss.
+        OUTPUT
+            |---- (auc) (float) the validation loss if required.
         """
         if print_to_logger:
             logger = logging.getLogger()
@@ -136,10 +170,10 @@ class SimCLR_trainer:
         net = net.to(self.device)
 
         # define loss function
-        loss_fn = NT_Xent_loss(self.tau, self.batch_size, device=self.device)
+        loss_fn = InfoNCE_loss(self.tau, self.batch_size, device=self.device)
 
         if print_to_logger:
-            logger.info("Start Evaluating SimCLR.")
+            logger.info("Start Evaluating Contrastive.")
 
         net.eval()
         with torch.no_grad():

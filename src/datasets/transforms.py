@@ -533,7 +533,7 @@ class ColorDistorsion:
     """
     def __init__(self, s=1.0, p=0.8):
         """
-
+        Constructor of the color distorsion transform.
         ----------
         INPUT
             |----
@@ -547,7 +547,7 @@ class ColorDistorsion:
 
     def __call__(self, image, mask=None):
         """
-
+        Distort the grayscale contrast and brightness of the passed image.
         ----------
         INPUT
             |---- image (PIL.Image) the image to adjust.
@@ -577,11 +577,12 @@ class ColorDistorsion:
 
 class GaussianBlur:
     """
-
+    Apply randomly a Gaussian blurring to the image with a randomly sampled
+    standard deviation, and passes the mask.
     """
     def __init__(self, p=0.5, sigma=(0.1, 2.0)):
         """
-
+        Constructor of the Gaussian Blur transform.
         ----------
         INPUT
             |----
@@ -593,7 +594,7 @@ class GaussianBlur:
 
     def __call__(self, image, mask=None):
         """
-
+        Apply a Gaussian Bluring to the image.
         ----------
         INPUT
             |---- image (PIL.Image) the image to adjust.
@@ -620,11 +621,11 @@ class GaussianBlur:
 
 class MaskImage:
     """
-
+    Perorm an element-wise multiplication of the image and the boolean mask.
     """
     def __init__(self, to_mask=True):
         """
-
+        Constructor of the MaskImage transformation.
         ----------
         INPUT
             |---- to_mask (bool) whether to perform the masking or not.
@@ -635,7 +636,7 @@ class MaskImage:
 
     def __call__(self, image, mask):
         """
-
+        Mask the image using the passed boolean mask.
         ----------
         INPUT
             |---- image (PIL.Image) the image to adjust.

@@ -10,8 +10,8 @@ import sys
 sys.path.append('../../')
 import click
 
-from src.datasets.MURADataset import MURA_TrainValidTestSplitter, MURA_Dataset, MURADataset_SimCLR
-from src.models.SimCLR_DMSAD import SimCLR_DMSAD
+from src.datasets.MURADataset import MURA_TrainValidTestSplitter, MURA_Dataset, MURADataset_Contrastive
+from src.models.CDMSAD import CDMSAD
 from src.models.networks.Networks import Encoder
 from src.utils.utils import summary_string
 from src.utils.Config import Config
@@ -20,7 +20,7 @@ from src.utils.Config import Config
 @click.argument('config_path', type=click.Path(exists=True))
 def main(config_path):
     """
-    Train a DMSAD on the MURA dataset using a SimCLR pretraining.
+    Train a DMSAD on the MURA dataset using a Contrastive pretraining.
     """
     # Load config file
     cfg = Config(settings=None)
@@ -107,37 +107,37 @@ def main(config_path):
         # print network architecture
         net_architecture = summary_string(net_CLR, (1, cfg.settings['Split']['img_size'], cfg.settings['Split']['img_size']),
                                           batch_size=cfg.settings['SimCLR']['batch_size'], device=str(cfg.settings['device']))
-        logger.info("SimCLR net architecture: \n" + net_architecture + '\n')
+        logger.info("Contrastive net architecture: \n" + net_architecture + '\n')
         net_architecture = summary_string(net_DMSAD, (1, cfg.settings['Split']['img_size'], cfg.settings['Split']['img_size']),
                                           batch_size=cfg.settings['DMSAD']['batch_size'], device=str(cfg.settings['device']))
         logger.info("DMSAD net architecture: \n" + net_architecture + '\n')
 
         # make model
-        clr_DMSAD = SimCLR_DMSAD(net_CLR, net_DMSAD, tau=cfg.settings['SimCLR']['tau'],
+        clr_DMSAD = CDMSAD(net_CLR, net_DMSAD, tau=cfg.settings['SimCLR']['tau'],
                                eta=cfg.settings['DMSAD']['eta'], gamma=cfg.settings['DMSAD']['gamma'])
 
-        ############################# Train SimCLR #############################
+        ########################### Train Contrastive ##########################
         # make datasets
-        train_dataset_CLR = MURADataset_SimCLR(train_df, data_path=cfg.settings['PATH']['DATA'],
+        train_dataset_CLR = MURADataset_Contrastive(train_df, data_path=cfg.settings['PATH']['DATA'],
                                      output_size=cfg.settings['Split']['img_size'], mask_img=True)
-        valid_dataset_CLR = MURADataset_SimCLR(valid_df, data_path=cfg.settings['PATH']['DATA'],
+        valid_dataset_CLR = MURADataset_Contrastive(valid_df, data_path=cfg.settings['PATH']['DATA'],
                                      output_size=cfg.settings['Split']['img_size'], mask_img=True)
-        test_dataset_CLR = MURADataset_SimCLR(test_df, data_path=cfg.settings['PATH']['DATA'],
+        test_dataset_CLR = MURADataset_Contrastive(test_df, data_path=cfg.settings['PATH']['DATA'],
                                     output_size=cfg.settings['Split']['img_size'], mask_img=True)
 
-        logger.info("SimCLR Online preprocessing pipeline : \n" + str(train_dataset_CLR.transform) + "\n")
+        logger.info("Contrastive Online preprocessing pipeline : \n" + str(train_dataset_CLR.transform) + "\n")
 
         # Load model if required
         if cfg.settings['SimCLR']['model_path_to_load']:
             clr_DMSAD.load_repr_net(cfg.settings['SimCLR']['model_path_to_load'], map_location=cfg.settings['device'])
-            logger.info(f"SimCLR Model Loaded from {cfg.settings['SimCLR']['model_path_to_load']}" + "\n")
+            logger.info(f"Contrastive Model Loaded from {cfg.settings['SimCLR']['model_path_to_load']}" + "\n")
 
         # print Train parameters
         for key, value in cfg.settings['SimCLR'].items():
-            logger.info(f"SimCLR {key} : {value}")
+            logger.info(f"Contrastive {key} : {value}")
 
-        # Train SimCLR
-        clr_DMSAD.train_SimCLR(train_dataset_CLR, valid_dataset=None,
+        # Train Contrastive
+        clr_DMSAD.train_contrastive(train_dataset_CLR, valid_dataset=None,
                               n_epoch=cfg.settings['SimCLR']['n_epoch'],
                               batch_size=cfg.settings['SimCLR']['batch_size'],
                               lr=cfg.settings['SimCLR']['lr'],
@@ -147,22 +147,22 @@ def main(config_path):
                               device=cfg.settings['device'],
                               print_batch_progress=cfg.settings['print_batch_progress'])
 
-        # Evaluate SimCLR to get embeddings
-        clr_DMSAD.evaluate_SimCLR(valid_dataset_CLR, batch_size=cfg.settings['SimCLR']['batch_size'],
+        # Evaluate Contrastive to get embeddings
+        clr_DMSAD.evaluate_contrastive(valid_dataset_CLR, batch_size=cfg.settings['SimCLR']['batch_size'],
                                  n_job_dataloader=cfg.settings['SimCLR']['num_worker'],
                                  device=cfg.settings['device'],
                                  print_batch_progress=cfg.settings['print_batch_progress'],
                                  set='valid')
 
-        clr_DMSAD.evaluate_SimCLR(test_dataset_CLR, batch_size=cfg.settings['SimCLR']['batch_size'],
+        clr_DMSAD.evaluate_contrastive(test_dataset_CLR, batch_size=cfg.settings['SimCLR']['batch_size'],
                                  n_job_dataloader=cfg.settings['SimCLR']['num_worker'],
                                  device=cfg.settings['device'],
                                  print_batch_progress=cfg.settings['print_batch_progress'],
                                  set='test')
 
         # save repr net
-        clr_DMSAD.save_repr_net(OUTPUT_PATH + f'model/SimCLR_net_{seed_i+1}.pt')
-        logger.info("SimCLR model saved at " + OUTPUT_PATH + f"model/SimCLR_net_{seed_i+1}.pt")
+        clr_DMSAD.save_repr_net(OUTPUT_PATH + f'model/Contrastive_net_{seed_i+1}.pt')
+        logger.info("Contrastive model saved at " + OUTPUT_PATH + f"model/Contrastive_net_{seed_i+1}.pt")
 
         # save Results
         clr_DMSAD.save_results(OUTPUT_PATH + f'results/results_{seed_i+1}.json')
@@ -174,12 +174,12 @@ def main(config_path):
 
         ############################## Train DMSAD ##############################
         # make dataset
-        train_dataset_AD = MURA_Dataset(train_df, data_path=cfg.settings['PATH']['DATA'], load_mask=True,
-                                     load_semilabels=True, output_size=cfg.settings['Split']['img_size'])
-        valid_dataset_AD = MURA_Dataset(valid_df, data_path=cfg.settings['PATH']['DATA'], load_mask=True,
-                                     load_semilabels=True, output_size=cfg.settings['Split']['img_size'])
-        test_dataset_AD = MURA_Dataset(test_df, data_path=cfg.settings['PATH']['DATA'], load_mask=True,
-                                    load_semilabels=True, output_size=cfg.settings['Split']['img_size'])
+        train_dataset_AD = MURA_Dataset(train_df, data_path=cfg.settings['PATH']['DATA'], mask_img=True,
+                                        output_size=cfg.settings['Split']['img_size'])
+        valid_dataset_AD = MURA_Dataset(valid_df, data_path=cfg.settings['PATH']['DATA'], mask_img=True,
+                                        output_size=cfg.settings['Split']['img_size'])
+        test_dataset_AD = MURA_Dataset(test_df, data_path=cfg.settings['PATH']['DATA'], mask_img=True,
+                                        output_size=cfg.settings['Split']['img_size'])
 
         logger.info("DMSAD Online preprocessing pipeline : \n" + str(train_dataset_AD.transform) + "\n")
 

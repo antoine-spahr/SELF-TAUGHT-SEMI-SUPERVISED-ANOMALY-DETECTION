@@ -89,9 +89,9 @@ class MURA_Dataset(data.Dataset):
 
         return im, label, mask, semi_label, torch.tensor(idx)
 
-class MURADataset_SimCLR(data.Dataset):
+class MURADataset_Contrastive(data.Dataset):
     """
-    MURA dataset for the SimCLR model which return two replicate of the image
+    MURA dataset for the contrastive model which return two replicate of the image
     with heavy data augmentation.
     """
     def __init__(self, sample_df, data_path, output_size=512, mask_img=True):
@@ -147,10 +147,12 @@ class MURADataset_SimCLR(data.Dataset):
             |---- semi_label (torch.Tensor) the semi-supervised label. 0 if unknown,
             |           1 if known normal and -1 if known abnormal.
         """
+        # Load image, mask and semi-label
         im = Image.open(self.data_path + self.sample_df.loc[idx,'filename'])
         mask = Image.open(self.data_path + self.sample_df.loc[idx,'mask_filename'])
         semi_label = torch.tensor(self.sample_df.loc[idx,'semi_label'])
 
+        # Perform to transformation of the image 
         im1, _ = self.transform(im, mask)
         im2, _ = self.transform(im, mask)
 

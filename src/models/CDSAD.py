@@ -2,22 +2,22 @@ import torch
 import json
 import sys
 
-from src.models.optim.SimCLR_trainer import SimCLR_trainer
+from src.models.optim.Contrastive_trainer import Contrastive_trainer
 from src.models.optim.DSAD_trainer import DSAD_trainer
 
-class SimCLR_DSAD:
+class CDSAD:
     """
     Define a Deep SAD encoder with a contrastive pretraining of the encoder.
     """
     def __init__(self, repr_net, AD_net, tau=0.5, eta=1.0):
         """
-        Build a SimCLR_DSAD.
+        Build a CDSAD.
         ----------
         INPUT
             |---- repr_net (nn.Module) the network to use for the contrastive learning.
             |---- AD_net (nn.Module) the DSAD network for anomaly detection.
-            |---- tau (float) the temperature parameter for the contrastive NT-
-            |           Xent loss function.
+            |---- tau (float) the temperature parameter for the contrastive
+            |           InfoNCE loss function.
             |---- eta (float) the semi-supervised importance in the DSAD loss.
         OUTPUT
             |---- None
@@ -62,7 +62,7 @@ class SimCLR_DSAD:
             }
         }
 
-    def train_SimCLR(self, dataset, valid_dataset=None, n_epoch=100, batch_size=32,
+    def train_contrastive(self, dataset, valid_dataset=None, n_epoch=100, batch_size=32,
                      lr=1e-3, weight_decay=1e-6, lr_milestones=(), n_job_dataloader=0,
                      device='cuda', print_batch_progress=False):
         """
@@ -84,7 +84,7 @@ class SimCLR_DSAD:
         OUTPUT
             |---- None
         """
-        self.repr_trainer = SimCLR_trainer(self.tau, n_epoch=n_epoch, batch_size=batch_size,
+        self.repr_trainer = Contrastive_trainer(self.tau, n_epoch=n_epoch, batch_size=batch_size,
                          lr=lr, weight_decay=weight_decay, lr_milestones=lr_milestones,
                          n_job_dataloader=n_job_dataloader, device=device,
                          print_batch_progress=print_batch_progress)
@@ -94,10 +94,10 @@ class SimCLR_DSAD:
         self.results['SimCLR']['train']['time'] = self.repr_trainer.train_time
         self.results['SimCLR']['train']['loss'] = self.repr_trainer.train_loss
 
-    def evaluate_SimCLR(self, dataset, batch_size=32, n_job_dataloader=0,
+    def evaluate_contrastive(self, dataset, batch_size=32, n_job_dataloader=0,
                     device='cuda', print_batch_progress=False, set='test'):
         """
-        Evaluate the SimCLR to get the embedding.
+        Evaluate the Contrastive Encoder to get the embedding.
         ----------
         INPUT
             |---- dataset (torch.utils.data.Dataset) The dataset on which to evaluate
@@ -115,7 +115,7 @@ class SimCLR_DSAD:
         assert set in ['valid', 'test'], f'Invalid set provided : {set} was given. Expected either valid or test.'
 
         if self.repr_trainer is None:
-            self.repr_trainer = SimCLR_trainer(self.tau, batch_size=batch_size,
+            self.repr_trainer = Contrastive_trainer(self.tau, batch_size=batch_size,
                         n_job_dataloader=n_job_dataloader, device=device,
                         print_batch_progress=print_batch_progress)
 
