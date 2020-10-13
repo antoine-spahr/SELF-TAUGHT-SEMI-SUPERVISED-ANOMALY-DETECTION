@@ -7,7 +7,7 @@ ____
 
 Detecting anomalies in musculoskeletal radiographs, e.g., fractures can help the radiologists to speed up the radiology workflow. Supervised deep networks take for granted a large number of annotations by radiologists, which is often prohibitively very time-consuming to acquire. Moreover, these supervised systems are tailored to closed set scenarios, e.g., trained models suffer from overfitting to previously seen rare anomalies at training. Instead, our approach's rationale is using contrastive learning built upon the deep semi-supervised framework to produce representation in the embedding space, which brings together similar images and pushes apart dissimilar images. Besides, we formulate a complex distribution of normal data within our framework to avoid a potential bias on the side of anomalies. Through extensive experiments, we show that our method outperforms baselines across unsupervised and self-supervised anomaly detection settings on a real-world medical dataset, the MURA dataset.
 
-<img src="Outputs/architecture_network_CDMSAD.png" alt="method" width="500"/>
+<img src="figure/architecture_network_CDMSAD.png" alt="method" width="500"/>
 
 ____
 ## Repository Organisation
