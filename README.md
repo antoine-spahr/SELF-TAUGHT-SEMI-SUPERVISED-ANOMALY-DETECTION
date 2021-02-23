@@ -2,6 +2,23 @@
 
 This repository contains the Pytorch implementation of the method proposed  the _Self-taught Semi-Supervised Anomaly detection on Upper limb X-rays_ under submission at ISBI 2021.
 
+
+____
+## Citation
+You can find the Self-Taught Semi-Supervised Anomaly Detection on Upper Limb X-ray paper at https://arxiv.org/abs/2102.09895
+
+If you find this work useful, please cite the paper:
+
+```
+@misc{spahr2021selftaught,
+      title={Self-Taught Semi-Supervised Anomaly Detection on Upper Limb X-rays},
+      author={Antoine Spahr and Behzad Bozorgtabar and Jean-Philippe Thiran},
+      year={2021},
+      eprint={2102.09895},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
+```
 ____
 ## Abstract
 
